@@ -1,0 +1,731 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+```{r}
+rm(list = ls())
+
+library(compiler)
+library(data.table)
+require(corpcor)
+library(reshape2)
+library(foreign)
+library(readxl)
+library(readstata13)
+library(haven)
+library(xlsx)
+library(dplyr)
+library(tidyverse)
+library(matrixStats)
+library(mice)
+library(miceadds)
+library(micemd)
+library(jomo)
+library(mitml)
+library(psych)
+library(data.table)
+library(plotly)
+library(stringr)
+library(plotrix)
+library(parallel)
+library(lme4)
+library(tidyr)
+library(ggplot2)
+set.seed(1234)
+
+k=204
+
+List=replicate(1000,(mutate((h1=mutate((reshape2::melt((H=(h=(data.frame(cbind(
+  
+  #generating hospital IDs randomly
+  FacilityID = sample(1:k,k),
+  
+  #generating month and year for each of the hospital IDs (January 2018 - August 2020)
+  Jan2018=rep(0,204),Feb2018=rep(0,204),Mar2018=rep(0,204),Apr2018=rep(0,204),May2018=rep(0,204),June2018=rep(0,204),July2018=rep(0,204),Aug2018=rep(0,204),Sep2018=rep(0,204),Oct2018=rep(0,204),Nov2018=rep(0,204),Dec2018=rep(0,204),Jan2019=rep(0,204),Feb2019=rep(0,204),Mar2019=rep(0,204),Apr2019=rep(0,204),May2019=rep(0,204),June2019=rep(0,204),July2019=rep(0,204),Aug2019=rep(0,204),Sep2019=rep(0,204),Oct2019=rep(0,204),Nov2019=rep(0,204),Dec2019=rep(0,204),Jan2020=rep(0,204),Feb2020=rep(0,204),Mar2020=rep(0,204),Apr2020=rep(0,204),May2020=rep(0,204),June2020=rep(0,204),July2020=rep(0,204),Aug2020=rep(0,204)))) %>% 
+    
+    #generating whether hospital is puplic or private (Type) using prediction model from observed
+    mutate(Type=unlist(simulate(readRDS("OwnershipModel.rds"), newdata=h, re.form=NA,
+                        allow.new.levels=T)))) %>% 
+    
+    #generating CIN variable using prediction model from observed data
+    mutate(CIN=unlist(simulate(readRDS("CINModel.rds"), newdata=H, re.form=NA,
+                        allow.new.levels=T)))),id=c("FacilityID","CIN","Type"))),
+  
+    #combining month and year to a single time point
+  Time=ifelse(variable=="Jan2018",1.1,ifelse(variable=="Feb2018",1.2,ifelse(variable=="Mar2018",1.3,ifelse(variable=="Apr2018",1.4,ifelse(variable=="May2018",1.5,ifelse(variable=="June2018",1.6,ifelse(variable=="July2018",1.7,ifelse(variable=="Aug2018",1.8,ifelse(variable=="Sep2018",1.9,ifelse(variable=="Oct2018",2.0,ifelse(variable=="Nov2018",2.1,ifelse(variable=="Dec2018",2.2,ifelse(variable=="Jan2019",2.3,ifelse(variable=="Feb2019",2.4,ifelse(variable=="Mar2019",2.5,ifelse(variable=="Apr2019",2.6,ifelse(variable=="May2019",2.7,ifelse(variable=="June2019",2.8,ifelse(variable=="July2019",2.9,ifelse(variable=="Aug2019",3.0,ifelse(variable=="Sep2019",3.1,ifelse(variable=="Oct2019",3.2,ifelse(variable=="Nov2019",3.3,ifelse(variable=="Dec2019",3.4,ifelse(variable=="Jan2020",3.5,ifelse(variable=="Feb2020",3.6,ifelse(variable=="Mar2020",3.7,ifelse(variable=="Apr2020",3.8,ifelse(variable=="May2020",3.9,ifelse(variable=="June2020",4.0,ifelse(variable=="July2020",4.1,4.2))))))))))))))))))))))))))))))))),
+  
+  #simulating inpatient indicators using models from observed data
+  CS=unlist(simulate(readRDS("CS_model2.rds"), newdata=h1, re.form=NA,
+                        allow.new.levels=T)),
+  TD = unlist(simulate(readRDS("TD_model2.rds"), newdata=h1, re.form=NA,
+                        allow.new.levels=T)),
+  LB=unlist(simulate(readRDS("LB_model2.rds"), newdata=h1, re.form=NA,
+                        allow.new.levels=T)),
+  Adm_O5PAEDS = unlist(simulate(readRDS("Adm_O5PAEDS_model2.rds"), newdata=h1, re.form=NA,
+                        allow.new.levels=T)),
+  Adm_U5PAEDS = unlist(simulate(readRDS("Adm_U5PAEDS_model2.rds"), newdata=h1, re.form=NA,
+                        allow.new.levels=T)),
+  Adm_O5MEDICAL = unlist(simulate(readRDS("Adm_O5MEDICAL_model2.rds"), newdata=h1, re.form=NA,
+                        allow.new.levels=T)),
+  Adm_U5MEDICAL = unlist(simulate(readRDS("Adm_U5MEDICAL_model2.rds"), newdata=h1, re.form=NA,
+                        allow.new.levels=T)),
+  Adm_O5SURGICAL = unlist(simulate(readRDS("Adm_O5SURGICAL_model2.rds"), newdata=h1, re.form=NA,
+                        allow.new.levels=T)),
+  Adm_U5SURGICAL = unlist(simulate(readRDS("Adm_U5SURGICAL_model2.rds"), newdata=h1, re.form=NA,
+                        allow.new.levels=T)),
+  Adm_O5MATERNITY = unlist(simulate(readRDS("Adm_O5MATERNITY_model2.rds"), newdata=h1, re.form=NA,
+                        allow.new.levels=T)),
+  Adm_U5NBU = unlist(simulate(readRDS("Adm_U5NBU_model2.rds"), newdata=h1, re.form=NA,
+                        allow.new.levels=T)),
+  
+  
+  #Simulating binary missingness variables (1 - missing and 0 - observed) using models from original data
+  CS_miss=unlist(simulate(readRDS("CS_missingmodel2.rds"), newdata=h1, re.form=NA,
+                        allow.new.levels=T)),
+  TD_miss=unlist(simulate(readRDS("TD_missingmodel2.rds"), newdata=h1, re.form=NA,
+                        allow.new.levels=T)),
+  LB_miss=unlist(simulate(readRDS("LB_missingmodel2.rds"), newdata=h1, re.form=NA,
+                        allow.new.levels=T)),
+  AdmMaternity_miss=unlist(simulate(readRDS("AdmMaternity_missingmodel2.rds"), newdata=h1, re.form=NA,
+                        allow.new.levels=T)),
+  AdmO5Medical_miss=unlist(simulate(readRDS("AdmO5Medical_missingmodel2.rds"), newdata=h1, re.form=NA,
+                        allow.new.levels=T)),
+  AdmO5Paeds_miss=unlist(simulate(readRDS("AdmO5Paeds_missingmodel2.rds"), newdata=h1, re.form=NA,
+                        allow.new.levels=T)),
+  AdmO5Surgical_miss=unlist(simulate(readRDS("AdmO5Surgical_missingmodel2.rds"), newdata=h1, re.form=NA,
+                        allow.new.levels=T)),
+  AdmU5Medical_miss=unlist(simulate(readRDS("AdmU5Medical_missingmodel2.rds"), newdata=h1, re.form=NA,
+                        allow.new.levels=T)),
+  AdmU5Paeds_miss=unlist(simulate(readRDS("AdmU5Paeds_missingmodel2.rds"), newdata=h1, re.form=NA,
+                        allow.new.levels=T)),
+  AdmU5Surgical_miss=unlist(simulate(readRDS("AdmU5Surgical_missingmodel2.rds"), newdata=h1, re.form=NA,
+                        allow.new.levels=T)),
+  AdmU5NBU_miss=unlist(simulate(readRDS("AdmU5NBU_missingmodel2.rds"), newdata=h1, re.form=NA,
+                        allow.new.levels=T)),
+  
+  #Assigning missing values using the binary missingness variables where 1 - missing 
+  CS=as.numeric(ifelse(CS_miss==1,NA_real_,CS)),
+  TD=as.numeric(ifelse(TD_miss==1,NA_real_,TD)),
+  LB=as.numeric(ifelse(LB_miss==1,NA_real_,LB)),
+  Adm_O5MATERNITY=as.numeric(ifelse(AdmMaternity_miss==1,NA_real_,Adm_O5MATERNITY)),
+  Adm_O5MEDICAL=as.numeric(ifelse(AdmO5Medical_miss==1,NA_real_,Adm_O5MEDICAL)),
+  Adm_O5PAEDS=as.numeric(ifelse(AdmO5Paeds_miss==1,NA_real_,Adm_O5PAEDS)),
+  Adm_O5SURGICAL=as.numeric(ifelse(AdmO5Surgical_miss==1,NA_real_,Adm_O5SURGICAL)),
+  Adm_U5NBU=as.numeric(ifelse(AdmU5NBU_miss==1,NA_real_,Adm_U5NBU)),
+  Adm_U5MEDICAL=as.numeric(ifelse(AdmU5Medical_miss==1,NA_real_,Adm_U5MEDICAL)),
+  Adm_U5PAEDS=as.numeric(ifelse(AdmU5Paeds_miss==1,NA_real_,Adm_U5PAEDS)),
+  Adm_U5SURGICAL=as.numeric(ifelse(AdmU5Surgical_miss==1,NA_real_,Adm_U5SURGICAL))
+  
+  #dropping the binary missing indicator variables
+    ,value=NULL,CS_miss=NULL,TD_miss=NULL,LB_miss=NULL,AdmMaternity_miss=NULL,AdmO5Medical_miss=NULL,AdmO5Paeds_miss=NULL,AdmO5Surgical_miss=NULL,AdmU5Medical_miss=NULL,AdmU5Paeds_miss=NULL,AdmU5Surgical_miss=NULL,AdmU5NBU_miss=NULL
+    
+    )) %>% dplyr::rename(months=variable),simplify = F)
+
+
+#Reshaping data
+for (i in 1:length(List)){
+List[[i]] <- reshape2::melt(List[[i]], id=c("FacilityID","CIN", "months" , "Type" ,"Time")) %>% dplyr::group_by(FacilityID,variable) %>% dplyr::mutate(reportedmonths = sum(!is.na(value))) %>% dplyr::rename(Indicator=variable) %>% group_by()%>% mutate(indicatorID=as.factor(group_indices(.,Indicator)),value1=ifelse(value<0,0,value))
+
+}
+
+#Excluding 3 indicators that have few hospitals and are duplicates of other indicators which are well reported
+List=lapply(List, function(x) dplyr::filter(x,!Indicator %in% c("Adm_U5MEDICAL","Adm_O5PAEDS","Adm_U5SURGICAL")))
+
+y=as.mitml.list(List)[[1]]#to be used in the function to extract column names
+```
+
+#Performing MI on each simulation and storing estimates
+
+```{r}
+fml=as.formula(value1~ 1 + Time + CIN +Type + (indicatorID|FacilityID)) #imputation model
+
+#Creating a modelling function
+modelling.function = function (list.of.simulated.data=List)
+{
+    
+  model.results=mclapply(list.of.simulated.data, function(x) {
+    
+      imputed.data=mitmlComplete(jomoImpute(x, formula=fml, n.burn=5000, n.iter=100, m=40,seed=12345))
+    
+    
+    sub.datasets = lapply(imputed.data, function(y)
+    {
+      y$value2=NULL
+     
+      y$value2=ifelse(y$value1<0,0,y$value1)
+      eval(parse(text=paste0('indicator.',unique(y$Indicator), '.dataset = subset(y, Indicator=="',unique(y$Indicator),'")',sep='\n')))
+      data.list = eval(parse(text=paste0('list(',paste0('indicator.',unique(y$Indicator), '.dataset', collapse = ','),')')))
+      return (data.list)
+    })
+   
+    i = NULL
+    for (i in unique(y$Indicator))
+    {
+      pos = match(i,unique(y$Indicator))
+      
+      eval(parse(text=paste0('derived.data.',i,'=as.mitml.list(list(',paste0('sub.datasets[[',1:40,']][[',pos,']]%>% spread(Indicator,value)', collapse=','),'))')))
+      
+    }
+    
+    j = NULL
+    all.estimates=NULL
+    all.estimates1=NULL
+    for (j in paste0('derived.data.',unique(y$Indicator)))
+    {
+      
+      datum.list = get (j)
+      
+      #fitting a model to each of 40 imputed dataset in each simulation
+      fit <- with(datum.list,{
+        lmer(value2~1+Time+CIN+Type+(1|FacilityID))
+        
+      })
+      
+      #pooling the results and storing the regression coefficients, standard errors, FMI and RIV
+      fit1=testEstimates(fit)
+      coeff_estimates=data.frame(fit1[[2]])
+      coeff_estimates <- tibble::rownames_to_column(coeff_estimates, "Covariate")[,c(1:3,7,8)] 
+      estimates=cbind(gsub('derived.data.','',j),coeff_estimates)
+      all.estimates = rbind(all.estimates,estimates)
+      
+      #Obtaining mean across the imputed datasets
+      mean.list=lapply(datum.list, function(x){reshape2::melt(x[,c(1,4,8,9)],
+                                                              id=c("FacilityID","months","indicatorID"))})
+      mean.list= map(mean.list, ~.x %>%
+                       
+                       group_by(indicatorID)%>%
+                       summarise(mean=mean((value)^2),se=std.error((value)^2)))
+      
+      combined=do.call(rbind,mean.list)
+      Mean_estimate1=combined %>% group_by() %>%
+        mutate(se2=(se)^2)  %>% group_by(indicatorID) %>%
+        
+        #obtaining the Rubin rule's variance measures for the mean
+        summarize(Mean=mean(mean),VW=(sum(se2))/40,VB=sqrt(var(mean)),uncertainty=VB/40,VT=VW+VB+uncertainty,PooledSE0=sqrt(VT),FMI=((VB+(VB/40))/VT),RIV=((VB+(VB/40))/VW))
+      
+      estimates1=cbind(gsub('derived.data.','',j),Mean_estimate1)
+      all.estimates1 = rbind(all.estimates1,estimates1)
+      
+      all=cbind(all.estimates,all.estimates1)
+      
+    }
+    
+    return (all)
+    
+    
+    
+  },mc.cores = 62)
+  
+  final.model.results = do.call('rbind',model.results)
+  final.model.results1 <- Map(cbind,model.results, simulation.no = (1:length(model.results)))
+  
+  combined.results=do.call(rbind,final.model.results1)
+  coeff.estimates=combined.results[,c(1:6,17)]  #regression coefficients
+  mean.estimates=combined.results[,c(7:17)]    #mean estimates
+ 
+  mean.estimates=mean.estimates %>% group_by(simulation.no)%>% distinct(indicatorID,.keep_all = TRUE)
+
+  #storing combined regression coefficients and mean estimates in a list
+  final_estimates=list(coeff.estimates,mean.estimates)
+ 
+  return (final_estimates)
+}
+
+#'''''''''''''''''''''''''Various Cut - offs''''''''''''''''''''''''''''''''''''''''''''''''''
+
+#>=30%
+List30 = mclapply(List, function(x) dplyr::filter(x, reportedmonths >=10),mc.cores = 62) #subset of hospitals with >=30% of months reported
+
+#MI modelling function
+coeff.results.30 <- modelling.function(List30)
+
+#storing the estimates
+write.csv(coeff.results.30[[1]],"Coeff.estimates.30.csv")  
+write.csv(coeff.results.30[[2]],"Mean.estimates.30.csv")
+
+
+#>=40%
+List40 = mclapply(List, function(x) dplyr::filter(x, reportedmonths >=13),mc.cores = 62) #subset of hospitals with >=40% of months reported
+
+#MI modelling function
+coeff.results.40 <- modelling.function(List40)
+
+#storing the estimates
+write.csv(coeff.results.40[[1]],"Coeff.estimates.40.csv")  
+write.csv(coeff.results.40[[2]],"Mean.estimates.40.csv")
+
+
+#>=50%
+List50 = mclapply(List, function(x) dplyr::filter(x, reportedmonths >=16),mc.cores = 62) #subset of hospitals with >=50% of months reported
+
+#MI modelling function
+coeff.results.50 <- modelling.function(List50)
+
+#storing the estimates
+write.csv(coeff.results.50[[1]],"Coeff.estimates.50.csv")  
+write.csv(coeff.results.50[[2]],"Mean.estimates.50.csv")
+
+
+#>=60%
+List60 = mclapply(List, function(x) dplyr::filter(x, reportedmonths >=19),mc.cores = 62) #subset of hospitals with >=60% of months reported
+
+#MI modelling function
+coeff.results.60 <- modelling.function(List60)
+
+#storing the estimates
+write.csv(coeff.results.60[[1]],"Coeff.estimates.60.csv")  
+write.csv(coeff.results.60[[2]],"Mean.estimates.60.csv")
+
+
+#>=70%
+List70 = mclapply(List, function(x) dplyr::filter(x, reportedmonths >=22),mc.cores = 62) #subset of hospitals with >=70% of months reported
+
+#MI modelling function
+coeff.results.70 <- modelling.function(List70)
+
+#storing the estimates
+write.csv(coeff.results.70[[1]],"Coeff.estimates.70.csv")  
+write.csv(coeff.results.70[[2]],"Mean.estimates.70.csv")
+
+
+
+#>=80%
+List80 = mclapply(List, function(x) dplyr::filter(x, reportedmonths >=26),mc.cores = 62) #subset of hospitals with >=80% of months reported
+
+#MI modelling function
+coeff.results.80 <- modelling.function(List80)
+
+#storing the estimates
+write.csv(coeff.results.80[[1]],"Coeff.estimates.80.csv")  
+write.csv(coeff.results.80[[2]],"Mean.estimates.80.csv")
+
+
+#combining estimates from simulations and adding a variable indicating the cut - off 
+
+#Regression coefficients
+Coeffs30=read.csv("Coeff.estimates.30.csv")
+Coeffs30$cutoff=">=30%"
+
+Coeffs40=read.csv("Coeff.estimates.40.csv")
+Coeffs40$cutoff=">=40%"
+
+Coeffs50=read.csv("Coeff.estimates.50.csv")
+Coeffs50$cutoff=">=50%"
+
+Coeffs60=read.csv("Coeff.estimates.60.csv")
+Coeffs60$cutoff=">=60%"
+
+Coeffs70=read.csv("Coeff.estimates.70.csv")
+Coeffs70$cutoff=">=70%"
+
+Coeffs80=read.csv("Coeff.estimates.80.csv")
+Coeffs80$cutoff=">=80%"
+
+CombinedCoeffs=rbind(Coeffs30,Coeffs40,Coeffs50,Coeffs60,Coeffs70,Coeffs80)
+write.csv(CombinedCoeffs,"CombinedCoeffs.csv")
+
+#Mean
+mean.30=read.csv("Mean.estimates.30.csv")
+mean.30$cutoff=">=30%"
+
+mean.40=read.csv("Mean.estimates.40.csv")
+mean.40$cutoff=">=40%"
+
+mean.50=read.csv("Mean.estimates.50.csv")
+mean.50$cutoff=">=50%"
+
+mean.60=read.csv("Mean.estimates.60.csv")
+mean.60$cutoff=">=60%"
+
+mean.70=read.csv("Mean.estimates.70.csv")
+mean.70$cutoff=">=70%"
+
+mean.80=read.csv("Mean.estimates.80.csv")
+mean.80$cutoff=">=80%"
+
+CombinedMeans=rbind(mean.30,mean.40,mean.50,mean.60,mean.70,mean.80)
+write.csv(CombinedMeans,"CombinedMeans.csv")
+
+```
+
+#Obtaining baseline/standard estimates from pre - imputed data
+
+```{r}
+
+#==========================Baseline mean estimates==================================
+baseline.mean.list=mclapply(List, function(x){x %>% group_by(Indicator)%>%
+    #obtaining the mean and standard errors of the data that has been transformed back to counts
+    summarize(Mean=mean((value1)^2,na.rm=T),SE=std.error((value1)^2))},mc.cores = 62)
+
+    #changing from list to a dataframe of the estimates
+    baseline.mean.list <- Map(cbind,baseline.mean.list, simulation.no = (1:length(baseline.mean.list)))
+   combined.baseline.mean.list=do.call(rbind,baseline.mean.list)
+   #storing them
+   write.csv(combined.baseline.mean.list,"Baseline Means.csv")
+
+
+#=========================Baseline regression estimates==============================
+baseline.reg.estimates.list=lapply(List,function(y){eval(parse(text=paste0('indicator.',unique(y$Indicator), '.dataset = subset(y, Indicator=="',unique(y$Indicator),'")',sep='\n')))
+      data.list = eval(parse(text=paste0('list(',paste0('indicator.',unique(y$Indicator), '.dataset', collapse = ','),')')))
+      return (data.list)
+})
+
+    i = NULL
+    for (i in unique(y$Indicator))
+    {
+      pos = match(i,unique(y$Indicator))
+      
+      eval(parse(text=paste0('derived.data.',i,'=as.mitml.list(list(',paste0('baseline.reg.estimates.list[[',1:1000,']][[',pos,']]%>% spread(Indicator,value)', collapse=','),'))')))
+      
+    }
+
+
+#==Caesarian Sections
+
+fit=mclapply(derived.data.CS,function(k){ lmer(value1~1+Time+CIN+Type+(1|FacilityID),data=k)},mc.cores = 62) #fit a mixed effects model
+  
+               
+fit1=mclapply(fit, function(n){
+            
+            data.frame(summary(n)[[10]])},mc.cores = 62) 
+
+#obtaining regression coefficients and their standard errors 
+fit1=mclapply(fit1,function(n){
+            tibble::rownames_to_column(n, "Covariate")[,c(1:3)] },mc.cores = 62)
+            
+fit1=mclapply(fit1, function(n){
+  
+  cbind(n,indicator="CS")
+},mc.cores = 62)
+
+#Changing from list to a dataframe
+final.model.results1 <- Map(cbind,fit1, simulation.no = (1:length(fit1)))
+
+#storing the estimates
+combined.results_CS=do.call(rbind,final.model.results1)
+
+#****same applies to the other indicators below*****
+
+#==Total Deliveries
+
+fit=mclapply(derived.data.TD,function(k){ lmer(value1~1+Time+CIN+Type+(1|FacilityID),data=k)},mc.cores = 62)
+                   
+fit1=mclapply(fit, function(n){
+            
+            data.frame(summary(n)[[10]])},mc.cores = 62)
+
+fit1=mclapply(fit1,function(n){
+            tibble::rownames_to_column(n, "Covariate")[,c(1:3)] },mc.cores = 62)
+            
+fit1=mclapply(fit1, function(n){
+  
+  cbind(n,indicator="TD")
+},mc.cores = 62)
+
+final.model.results1 <- Map(cbind,fit1, simulation.no = (1:length(fit1)))
+combined.results_TD=do.call(rbind,final.model.results1)
+
+
+
+#==Live Births
+
+fit=mclapply(derived.data.LB,function(k){ lmer(value1~1+Time+CIN+Type+(1|FacilityID),data=k)},mc.cores = 62)
+                   
+fit1=mclapply(fit, function(n){
+            
+            data.frame(summary(n)[[10]])},mc.cores = 62)
+
+fit1=mclapply(fit1,function(n){
+            tibble::rownames_to_column(n, "Covariate")[,c(1:3)] },mc.cores = 62)
+            
+fit1=mclapply(fit1, function(n){
+  
+  cbind(n,indicator="LB")
+},mc.cores = 62)
+
+final.model.results1 <- Map(cbind,fit1, simulation.no = (1:length(fit1)))
+combined.results_LB=do.call(rbind,final.model.results1)
+
+
+#==Admissions NBU
+
+fit=mclapply(derived.data.Adm_U5NBU,function(k){ lmer(value1~1+Time+CIN+Type+(1|FacilityID),data=k)},mc.cores = 62)
+                   
+fit1=mclapply(fit, function(n){
+            
+            data.frame(summary(n)[[10]])},mc.cores = 62)
+
+fit1=mclapply(fit1,function(n){
+            tibble::rownames_to_column(n, "Covariate")[,c(1:3)] },mc.cores = 62)
+            
+fit1=mclapply(fit1, function(n){
+  
+  cbind(n,indicator="Adm_U5NBU")
+},mc.cores = 62)
+
+final.model.results1 <- Map(cbind,fit1, simulation.no = (1:length(fit1)))
+combined.results_Adm_U5NBU=do.call(rbind,final.model.results1)
+
+
+#==Admissions U5 Paediatrics ward
+
+fit=mclapply(derived.data.Adm_U5PAEDS,function(k){ lmer(value1~1+Time+CIN+Type+(1|FacilityID),data=k)},mc.cores = 62)
+                   
+fit1=mclapply(fit, function(n){
+            
+            data.frame(summary(n)[[10]])},mc.cores = 62)
+
+fit1=mclapply(fit1,function(n){
+            tibble::rownames_to_column(n, "Covariate")[,c(1:3)] },mc.cores = 62)
+            
+fit1=mclapply(fit1, function(n){
+  
+  cbind(n,indicator="Adm_U5PAEDS")
+},mc.cores = 62)
+
+final.model.results1 <- Map(cbind,fit1, simulation.no = (1:length(fit1)))
+combined.results_Adm_U5PAEDS=do.call(rbind,final.model.results1)
+
+
+#==Admissions O5 Medical ward
+
+fit=mclapply(derived.data.Adm_O5MEDICAL,function(k){ lmer(value1~1+Time+CIN+Type+(1|FacilityID),data=k)},mc.cores = 62)
+                   
+fit1=mclapply(fit, function(n){
+            
+            data.frame(summary(n)[[10]])},mc.cores = 62)
+
+fit1=mclapply(fit1,function(n){
+            tibble::rownames_to_column(n, "Covariate")[,c(1:3)] },mc.cores = 62)
+            
+fit1=mclapply(fit1, function(n){
+  
+  cbind(n,indicator="Adm_O5MEDICAL")
+},mc.cores = 62)
+
+final.model.results1 <- Map(cbind,fit1, simulation.no = (1:length(fit1)))
+combined.results_Adm_O5MEDICAL=do.call(rbind,final.model.results1)
+
+
+#==Admissions O5 Maternity ward
+
+fit=mclapply(derived.data.Adm_O5MATERNITY,function(k){ lmer(value1~1+Time+CIN+Type+(1|FacilityID),data=k)},mc.cores = 62)
+                   
+fit1=mclapply(fit, function(n){
+            
+            data.frame(summary(n)[[10]])},mc.cores = 62)
+
+fit1=mclapply(fit1,function(n){
+            tibble::rownames_to_column(n, "Covariate")[,c(1:3)] },mc.cores = 62)
+            
+fit1=mclapply(fit1, function(n){
+  
+  cbind(n,indicator="Adm_O5MATERNITY")
+},mc.cores = 62)
+
+final.model.results1 <- Map(cbind,fit1, simulation.no = (1:length(fit1)))
+combined.results_Adm_O5MATERNITY=do.call(rbind,final.model.results1)
+
+
+#==Admissions O5 Surgical ward
+
+fit=mclapply(derived.data.Adm_O5SURGICAL,function(k){ lmer(value1~1+Time+CIN+Type+(1|FacilityID),data=k)},mc.cores = 62)
+                   
+fit1=mclapply(fit, function(n){
+            
+            data.frame(summary(n)[[10]])},mc.cores = 62)
+
+fit1=mclapply(fit1,function(n){
+            tibble::rownames_to_column(n, "Covariate")[,c(1:3)] },mc.cores = 62)
+            
+fit1=mclapply(fit1, function(n){
+  
+  cbind(n,indicator="Adm_O5SURGICAL")
+},mc.cores = 62)
+
+final.model.results1 <- Map(cbind,fit1, simulation.no = (1:length(fit1)))
+combined.results_Adm_O5SURGICAL=do.call(rbind,final.model.results1)
+
+
+baseline.reg.estimates.list=rbind(combined.results_TD,combined.results_CS,combined.results_LB,combined.results_Adm_U5NBU,combined.results_Adm_O5SURGICAL,combined.results_Adm_O5MEDICAL,combined.results_Adm_U5PAEDS,combined.results_Adm_O5MATERNITY)
+
+
+write.csv(baseline.reg.estimates.list,"Baseline regression estimates.csv")
+#=============================================================================================================================================
+```
+
+#Analysis of performance measures
+
+```{r}
+#Regression estimates
+
+baseline=read.csv("Baseline regression estimates.csv")[,-1]
+baseline=baseline %>% rename(Indicator=indicator)
+
+baseline$Indicator=ifelse(baseline$Indicator=="Adm_O5MEDICAL","Adms > 5 Medical",ifelse(baseline$Indicator=="Adm_U5MEDICAL","Adms < 5 Medical",ifelse(baseline$Indicator=="Adm_O5SURGICAL","Adms > 5 Surgical",ifelse(baseline$Indicator=="Adm_U5SURGICAL","Adms < 5 Surgical",ifelse(baseline$Indicator=="Adm_O5PAEDS","Adms > 5 Paediatrics",ifelse(baseline$Indicator=="Adm_U5PAEDS","Adms < 5 Paediatrics",ifelse(baseline$Indicator=="Adm_U5NBU","Adms NBU",ifelse(baseline$Indicator=="Adm_O5MATERNITY","Adms Maternity",ifelse(baseline$Indicator=="CS","Caesarian sections",ifelse(baseline$Indicator=="TD","Total deliveries","Live births"))))))))))
+
+baseline$sim2=baseline$simulation.no
+  
+sims=read.csv("CombinedCoeffs.csv")[,-(1:2)]
+
+sims=sims %>% rename(Indicator='gsub..derived.data........j.')
+
+sims$Indicator=ifelse(sims$Indicator=="Adm_O5MEDICAL","Adms > 5 Medical",ifelse(sims$Indicator=="Adm_U5MEDICAL","Adms < 5 Medical",ifelse(sims$Indicator=="Adm_O5SURGICAL","Adms > 5 Surgical",ifelse(sims$Indicator=="Adm_U5SURGICAL","Adms < 5 Surgical",ifelse(sims$Indicator=="Adm_O5PAEDS","Adms > 5 Paediatrics",ifelse(sims$Indicator=="Adm_U5PAEDS","Adms < 5 Paediatrics",ifelse(sims$Indicator=="Adm_U5NBU","Adms NBU",ifelse(sims$Indicator=="Adm_O5MATERNITY","Adms Maternity",ifelse(sims$Indicator=="CS","Caesarian sections",ifelse(sims$Indicator=="TD","Total deliveries","Live births"))))))))))
+
+sims$sim2=sims$simulation.no
+
+baseline=baseline %>% rename(Estimate0=Estimate,Std.Error0=Std..Error)
+
+
+comb <- sims %>% 
+  left_join(baseline, by = c("Covariate","Indicator","sim2"))
+
+comb$Indicator=factor(comb$Indicator,levels=c("Total deliveries","Live births","Caesarian sections","Adms Maternity","Adms > 5 Medical","Adms > 5 Surgical","Adms < 5 Paediatrics","Adms NBU"))
+
+comb=comb[,-c(7,12)]
+comb=subset(comb,!comb$Covariate=="(Intercept)")
+
+comb=comb %>% rename(CutOff=cutoff)
+#========BIAS
+comb$biasEstimate=(comb$Estimate-comb$Estimate0)
+comb$biasSE=(comb$Std.Error-comb$Std.Error0)
+
+#Regression coefficients bias
+ggplot(comb, aes(Covariate, biasEstimate)) +theme_bw()+ geom_boxplot(aes(fill = CutOff), show.legend = T)+ylim(-2,3)+
+facet_wrap(~Indicator, scales = "fixed")+ggtitle("")+xlab("Covariates")+ylab("Estimated bias")+
+     theme(text = element_text(size=18,face="bold",hjust = 0.5),
+        axis.title=element_text(size=18,face="bold"),
+        axis.text.x = element_text(angle=90, hjust=1,size = 18),
+        axis.text.y = element_text(size = 18),
+        axis.text=element_text(size=18),legend.margin = margin(0, 0.8, 0.8, 0.8, "cm"),legend.justification = "top")
+
+
+#Regression coefficients standard error bias
+ggplot(comb, aes(Covariate, biasSE)) +theme_bw()+ geom_boxplot(aes(fill = CutOff), show.legend = T)+ylim(-1,2)+
+facet_wrap(~Indicator, scales = "fixed")+ggtitle("")+xlab("Covariates")+ylab("Estimated bias")+
+   theme(text = element_text(size=25,face="bold",hjust = 0.5),
+        axis.title=element_text(size=25,face="bold"),
+        axis.text.x = element_text(angle=90, hjust=1,size = 25),
+        axis.text.y = element_text(size = 25),
+        axis.text=element_text(size=25),legend.margin = margin(0, 0.8, 0.8, 0.8, "cm"),legend.justification = "top")
+
+#========COVERAGE
+library(plotrix)
+
+comb$lowerEstimate=comb$Estimate-1.96*comb$Std.Error
+comb$upperEstimate=comb$Estimate+1.96*comb$Std.Error
+comb$first=ifelse(comb$Estimate0>=comb$lowerEstimate,1,0)
+comb$second=ifelse(comb$first==1 & comb$Estimate0<=comb$upperEstimate,1,0)
+
+
+cov=comb %>% group_by(Indicator,Covariate,CutOff) %>%
+             summarize(sum=count(second)/length(second))
+
+cov$sum=round(cov$sum,2)
+
+ggplot(cov, aes(x=Covariate, y=sum,shape=CutOff, color=CutOff)) +theme_bw()+ylim(0,1)+ geom_jitter(position=position_dodge(0.8),size=5,show.legend = T) + geom_hline(aes(yintercept=0.95), color="red", linetype="dashed",size=1.5) +
+facet_wrap(~Indicator, scales = "fixed")+ggtitle("")+xlab("Covariates")+ylab("Coverage")+
+    theme(text = element_text(size=18,face="bold",hjust = 0.5),
+        axis.title=element_text(size=18,face="bold"),
+        axis.text.x = element_text(angle=90, hjust=1,size = 18),
+        axis.text.y = element_text(size = 18),
+        axis.text=element_text(size=18),legend.margin = margin(0, 0.8, 0.8, 0.8, "cm"),legend.justification = "top")
+
+
+#FMI
+sims=sims %>% rename(CutOff=cutoff)
+ggplot(sims, aes(Covariate, FMI)) +theme_bw()+ geom_boxplot(aes(fill = CutOff), show.legend = T) +ylim(0,1)+
+facet_wrap(~Indicator, scales = "fixed")+ggtitle("")+xlab("Covariates")+ylab("FMI")+
+    theme(text = element_text(size=18,face="bold",hjust = 0.5),
+        axis.title=element_text(size=18,face="bold"),
+        axis.text.x = element_text(angle=90, hjust=1,size = 18),
+        axis.text.y = element_text(size = 18),
+        axis.text=element_text(size=18),legend.margin = margin(0, 0.8, 0.8, 0.8, "cm"),legend.justification = "top")
+
+#===================================================================================================
+#====================================Mean Estimates=================================================
+baseline=read.csv("Baseline Means.csv")[,-1]
+
+baseline$Indicator=ifelse(baseline$Indicator=="Adm_O5MEDICAL","Adms > 5 Medical",ifelse(baseline$Indicator=="Adm_U5MEDICAL","Adms < 5 Medical",ifelse(baseline$Indicator=="Adm_O5SURGICAL","Adms > 5 Surgical",ifelse(baseline$Indicator=="Adm_U5SURGICAL","Adms < 5 Surgical",ifelse(baseline$Indicator=="Adm_O5PAEDS","Adms > 5 Paediatrics",ifelse(baseline$Indicator=="Adm_U5PAEDS","Adms < 5 Paediatrics",ifelse(baseline$Indicator=="Adm_U5NBU","Adms NBU",ifelse(baseline$Indicator=="Adm_O5MATERNITY","Adms Maternity",ifelse(baseline$Indicator=="CS","Caesarian sections",ifelse(baseline$Indicator=="TD","Total deliveries","Live births"))))))))))
+
+baseline$sim2=as.numeric(baseline$simulation.no)
+
+
+#baseline$Data=NULL
+baseline=baseline %>% rename(Mean0=Mean)
+baseline$simulation.no=NULL
+
+sims=read.csv("CombinedMeans.csv")[,-(1:2)]
+
+sims=sims %>% rename(Indicator='gsub..derived.data........j.')
+
+sims$Indicator=ifelse(sims$Indicator=="Adm_O5MEDICAL","Adms > 5 Medical",ifelse(sims$Indicator=="Adm_U5MEDICAL","Adms < 5 Medical",ifelse(sims$Indicator=="Adm_O5SURGICAL","Adms > 5 Surgical",ifelse(sims$Indicator=="Adm_U5SURGICAL","Adms < 5 Surgical",ifelse(sims$Indicator=="Adm_O5PAEDS","Adms > 5 Paediatrics",ifelse(sims$Indicator=="Adm_U5PAEDS","Adms < 5 Paediatrics",ifelse(sims$Indicator=="Adm_U5NBU","Adms NBU",ifelse(sims$Indicator=="Adm_O5MATERNITY","Adms Maternity",ifelse(sims$Indicator=="CS","Caesarian sections",ifelse(sims$Indicator=="TD","Total deliveries","Live births"))))))))))
+sims=sims %>% rename(sim2=simulation.no)
+sims$simulation.no=NULL
+comb <- sims %>% 
+  left_join(baseline, by = c("Indicator","sim2"))
+
+comb$Indicator=factor(comb$Indicator,levels=c("Total deliveries","Live births","Caesarian sections","Adms Maternity","Adms > 5 Medical","Adms > 5 Surgical","Adms < 5 Paediatrics","Adms NBU"))
+
+
+#======Relative BIAS
+#mean
+comb=comb %>% rename(CutOff=cutoff)
+comb$biasEstimate=(comb$Mean-comb$Mean0)/comb$Mean0
+ggplot(comb, aes(Indicator, biasEstimate)) +theme_bw()+ geom_boxplot(aes(fill = CutOff), show.legend = T)+ylim(-0.2,1)+ggtitle("")+xlab("Indicators")+ylab("Relative bias")+
+    theme(text = element_text(size=25,face="bold",hjust = 0.5),
+        axis.title=element_text(size=25,face="bold"),
+        axis.text.x = element_text(angle=45, hjust=1,size = 25),
+        axis.text.y = element_text(size = 25),
+        axis.text=element_text(size=25),legend.margin = margin(0, 0.8, 0.8, 0.8, "cm"),legend.justification = "top")
+
+#standard error
+
+comb$biasSE=(comb$PooledSE0-comb$SE)/comb$SE
+ggplot(comb, aes(Indicator, biasSE)) +theme_bw()+ geom_boxplot(aes(fill = CutOff), show.legend = T)+ylim(-0.2,1)+ggtitle("")+xlab("Indicators")+ylab("Relative bias")+
+    theme(text = element_text(size=25,face="bold",hjust = 0.5),
+        axis.title=element_text(size=25,face="bold"),
+        axis.text.x = element_text(angle=45, hjust=1,size = 25),
+        axis.text.y = element_text(size = 25),
+        axis.text=element_text(size=25),legend.margin = margin(0, 0.8, 0.8, 0.8, "cm"),legend.justification = "top")
+
+#Coverage
+comb$lowerEstimate=comb$Mean-1.96*comb$PooledSE0
+comb$upperEstimate=comb$Mean+1.96*comb$PooledSE0
+comb$first=ifelse(comb$Mean0>=comb$lowerEstimate,1,0)
+comb$second=ifelse(comb$first==1 & comb$Mean0<=comb$upperEstimate,1,0)
+
+
+cov=comb %>% group_by(Indicator,CutOff) %>%
+             summarize(sum=count(second)/length(second))
+cov$sum=round(cov$sum,2)
+
+
+ggplot(cov, aes(x=Indicator, y=sum,shape=CutOff, color=CutOff))+theme_bw() +ylim(0,1)+ geom_jitter(position=position_dodge(0.8),size=5) + geom_hline(aes(yintercept=0.95), color="red", linetype="dashed",size=1.5)+
+ggtitle("Coverage of mean estimates")+xlab("Indicator")+ylab("Coverage")+
+     theme(text = element_text(size=25,face="bold",hjust = 0.5),
+        axis.title=element_text(size=25,face="bold"),
+        axis.text.x = element_text(angle=45, hjust=1,size = 25),
+        axis.text.y = element_text(size = 25),
+        axis.text=element_text(size=25),legend.margin = margin(0, 0.8, 0.8, 0.8, "cm"),legend.justification = "top")
+
+#FMI
+sims=sims %>% rename(CutOff=cutoff)
+ggplot(sims, aes(CutOff, FMI)) +theme_bw()+ geom_boxplot(aes(fill = factor(CutOff)), show.legend = F) +ylim(0,1)+
+facet_wrap(~Indicator, scales = "fixed")+ggtitle("")+xlab("Reporting Cut-Offs")+ylab("FMI")+
+   theme(text = element_text(size=25,face="bold",hjust = 0.5),
+        axis.title=element_text(size=25,face="bold"),
+        axis.text.x = element_text(angle=45, hjust=1,size = 25),
+        axis.text.y = element_text(size = 25),
+        axis.text=element_text(size=25),legend.margin = margin(0, 0.8, 0.8, 0.8, "cm"),legend.justification = "top")
+
+```
+
+
+
+
+
+
